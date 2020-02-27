@@ -1,0 +1,277 @@
+// IMPORTANT: you must include the following line in all your C files
+#include <lcom/lcf.h>
+#include <lcom/lab5.h>
+#include <stdint.h>
+#include <stdio.h>
+#include "timer.h"
+#include "keyboard.h"
+#include "video_graph.h"
+#include "video_macros.h"
+
+// Any header files included below this line should have been created by you
+
+int main(int argc, char *argv[]) {
+  // sets the language of LCF messages (can be either EN-US or PT-PT)
+  lcf_set_language("EN-US");
+
+  // enables to log function invocations that are being "wrapped" by LCF
+  // [comment this out if you don't want/need it]
+  lcf_trace_calls("/home/lcom/labs/lab5/trace.txt");
+
+  // enables to save the output of printf function calls on a file
+  // [comment this out if you don't want/need it]
+  lcf_log_output("/home/lcom/labs/lab5/output.txt");
+
+  // handles control over to LCF
+  // [LCF handles command line arguments and invokes the right function]
+  if (lcf_start(argc, argv))
+    return 1;
+
+  // LCF clean up tasks
+  // [must be the last statement before return]
+  lcf_cleanup();
+
+  return 0;
+}
+
+int(video_test_init)(uint16_t mode, uint8_t delay) {
+if(vg_init(mode) == NULL){
+  return 1;
+}
+
+sleep(delay);
+
+vg_exit();
+
+
+return 0; 
+}
+
+extern uint8_t code;
+
+int(video_test_rectangle)(uint16_t mode, uint16_t x, uint16_t y,
+                          uint16_t width, uint16_t height, uint32_t color) {
+  
+  uint8_t irq_set;
+  int r, ipc_status;
+  message msg;
+  uint8_t scan_code[2];
+  bool two_byte = false;
+  bool make;
+
+  if(vg_init(mode)==NULL){
+    return 1;
+  }
+
+  if(kbd_subscribe_int(&irq_set) == 1){
+    return 1;
+  }
+
+  vg_draw_rectangle(x,y,width,height,color);
+
+  while(code != ESC_BREAKCODE) {
+      /* Get a request message. */
+      if ( (r = driver_receive(ANY, &msg, &ipc_status)) != 0 ) { 
+          printf("driver_receive failed with: %d", r);
+        continue;
+    }
+    if (is_ipc_notify(ipc_status)) { /* received notification */
+        switch (_ENDPOINT_P(msg.m_source)) {
+            case HARDWARE: /* hardware interrupt notification */				
+                if (msg.m_notify.interrupts & irq_set) { /* subscribed interrupt */
+                  kbc_ih();
+                  if(!two_byte){
+                    scan_code[0]=code;
+                    if(code == TWO_BYTE_SCANCODE){
+                      two_byte = true;
+                    }
+                    else{
+                      make = (code & 0x80) == 0;
+                    }
+                  }
+                  else{
+                    two_byte = false;
+                    scan_code[1]=code;
+                    make = (code & 0x80) == 0;
+                  }
+                } 
+                break;
+            default:
+                break; /* no other notifications expected: do nothing */	
+        }
+    } else { /* received a standard message, not a notification */
+        /* no standard messages expected: do nothing */
+    }
+  }
+  vg_exit();
+
+  if(kbd_unsubscribe_int() != 0){
+   return 1;
+  }
+
+  return 0;
+}
+
+int(video_test_pattern)(uint16_t mode, uint8_t no_rectangles, uint32_t first, uint8_t step) {
+  uint8_t irq_set;
+  int r, ipc_status;
+  message msg;
+  uint8_t scan_code[2];
+  bool two_byte = false;
+  bool make;
+
+  if(vg_init(mode)==NULL){
+    return 1;
+  }
+
+  if(kbd_subscribe_int(&irq_set) == 1){
+    return 1;
+  }
+
+  int width = (get_h_res()/no_rectangles);
+  int height = (get_v_res()/no_rectangles);
+  uint32_t color;
+
+  for (unsigned i=0; i<no_rectangles; i++){
+    for (unsigned j=0; j<no_rectangles; j++){
+      color = recs_color(i,j, no_rectangles, first, step);
+      if(color==1){
+        return 1;
+      }
+      if(vg_draw_rectangle(j*width,i*height,width, height, color)!=0){
+        return 1;
+      }
+    }
+  }
+
+  while(code != ESC_BREAKCODE) {
+      /* Get a request message. */
+      if ( (r = driver_receive(ANY, &msg, &ipc_status)) != 0 ) { 
+          printf("driver_receive failed with: %d", r);
+        continue;
+    }
+    if (is_ipc_notify(ipc_status)) { /* received notification */
+        switch (_ENDPOINT_P(msg.m_source)) {
+            case HARDWARE: /* hardware interrupt notification */				
+                if (msg.m_notify.interrupts & irq_set) { /* subscribed interrupt */
+                  kbc_ih();
+                  if(!two_byte){
+                    scan_code[0]=code;
+                    if(code == TWO_BYTE_SCANCODE){
+                      two_byte = true;
+                    }
+                    else{
+                      make = (code & 0x80) == 0;
+                    }
+                  }
+                  else{
+                    two_byte = false;
+                    scan_code[1]=code;
+                    make = (code & 0x80) == 0;
+                  }
+                } 
+                break;
+            default:
+                break; /* no other notifications expected: do nothing */	
+        }
+    } else { /* received a standard message, not a notification */
+        /* no standard messages expected: do nothing */
+    }
+  }
+  vg_exit();
+
+  if(kbd_unsubscribe_int() != 0){
+   return 1;
+  }
+
+  return 0;
+}
+
+int(video_test_xpm)(xpm_map_t xpm, uint16_t x, uint16_t y) {
+    uint8_t irq_set;
+    int r, ipc_status;
+    message msg;
+    uint8_t scan_code[2];
+    bool two_byte = false;
+    bool make;
+
+    if(vg_init(MODE_1)==NULL){
+        return 1;
+    }
+
+    if(kbd_subscribe_int(&irq_set) == 1){
+        return 1;
+    }
+
+
+    xpm_image_t img;
+    uint8_t *map;
+
+    map = xpm_load(xpm,XPM_INDEXED,&img);
+
+    for(uint16_t i = 0; i < img.height; i++){
+        for(uint16_t j = 0; j < img.width; j++){
+            uint32_t color = map[j + i*img.width];
+            change_pixel_color(x+j, y+i, color);
+        }
+    }
+
+
+    while(code != ESC_BREAKCODE) {
+        /* Get a request mes5sage. */
+        if ( (r = driver_receive(ANY, &msg, &ipc_status)) != 0 ) {
+            printf("driver_receive failed with: %d", r);
+            continue;
+        }
+        if (is_ipc_notify(ipc_status)) { /* received notification */
+            switch (_ENDPOINT_P(msg.m_source)) {
+                case HARDWARE: /* hardware interrupt notification */
+                    if (msg.m_notify.interrupts & irq_set) { /* subscribed interrupt */
+                        kbc_ih();
+                        if(!two_byte){
+                            scan_code[0]=code;
+                            if(code == TWO_BYTE_SCANCODE){
+                                two_byte = true;
+                            }
+                            else{
+                                make = (code & 0x80) == 0;
+                            }
+                        }
+                        else{
+                            two_byte = false;
+                            scan_code[1]=code;
+                            make = (code & 0x80) == 0;
+                        }
+                    }
+                    break;
+                default:
+                    break; /* no other notifications expected: do nothing */
+            }
+        } else { /* received a standard message, not a notification */
+            /* no standard messages expected: do nothing */
+        }
+    }
+    vg_exit();
+
+    if(kbd_unsubscribe_int() != 0){
+        return 1;
+    }
+
+    return 0;
+}
+
+int(video_test_move)(xpm_map_t xpm, uint16_t xi, uint16_t yi, uint16_t xf, uint16_t yf,
+                     int16_t speed, uint8_t fr_rate) {
+  /* To be completed */
+  printf("%s(%8p, %u, %u, %u, %u, %d, %u): under construction\n",
+         __func__, xpm, xi, yi, xf, yf, speed, fr_rate);
+
+  return 1;
+}
+
+int(video_test_controller)() {
+  /* To be completed */
+  printf("%s(): under construction\n", __func__);
+
+  return 1;
+}
