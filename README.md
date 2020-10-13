@@ -4,8 +4,8 @@
 
 ## Grades
 
-**LCOM final grade : 17**
+**Final grade : 17**
 
-| | Lab2 | Lab3 | Lab4 | Lab5 | Projeto |
+| | Lab2 | Lab3 | Lab4 | Lab5 | Project |
 | --- | --- | --- | --- | --- | --- |
-| **Nota** | 98| 98| 79| 63| 17.08|
+| **Grade** | 98| 98| 79| 63| 17.08|
